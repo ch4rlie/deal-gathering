@@ -1,0 +1,140 @@
+Database: deals
+
+Table: brands
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - label (varchar(300))
+  - website (varchar(300))
+  - relationship (enum('standard','sponsor','preferred','popular'))
+
+Table: categories
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_parent_category (int(11))
+  - label (varchar(300))
+
+Table: comment_reports
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_users (int(11))
+  - id_comments (int(11))
+  - description (longtext)
+
+Table: comments
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - status (enum('live','reported','restored','removed'))
+  - type (enum('comment','question','answer'))
+  - id_deals (int(11))
+  - id_forum_posts (int(11))
+  - id_users (int(11))
+  - id_parent_comment (int(11))
+  - number_of_likes (int(11))
+  - number_of_dislikes (int(11))
+  - number_of_shares (int(11))
+
+Table: deals
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - status (enum('upcoming','live','sold out','expired','invalid'))
+  - timestamp_expires (datetime)
+  - price_expected (decimal(10,0))
+  - price_discounted (decimal(10,0))
+  - woot_offer_id (varchar(36))
+  - image_url (varchar(500))
+
+Table: deals__brands
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_deals (int(11))
+  - id_brands (int(11))
+
+Table: deals__categories
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_deals (int(11))
+  - id_categories (int(11))
+
+Table: deals__steps
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_deals (int(11))
+  - id_steps (int(11))
+  - sequence (int(11))
+
+Table: features
+  - id (int(11))
+  - label (varchar(300))
+  - value (longtext)
+  - additional_info (longtext)
+
+Table: forum_posts
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_users (int(11))
+  - id_deals (int(11))
+  - title (varchar(300))
+  - body (longtext)
+
+Table: items
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - timestamp_first_posted (time)
+  - id_manufacturing_brand (int(11))
+  - label (varchar(300))
+  - average_price (decimal(10,0))
+  - woot_item_id (varchar(50))
+  - title (varchar(255))
+  - description (text)
+  - condition (varchar(50))
+  - image_url (varchar(500))
+  - woot_url (varchar(500))
+  - woot_start_date (datetime)
+  - woot_end_date (datetime)
+  - asin (varchar(50))
+  - color (varchar(50))
+  - features (text)
+  - specs (text)
+
+Table: items__features
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_items (int(11))
+  - id_features (int(11))
+  - sequence (int(11))
+
+Table: notifications
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_users (int(11))
+  - status (enum('seen','unseen'))
+  - type (enum('deal recommendation','upcoming expiration','comment reply','deal update'))
+  - id_deals (int(11))
+  - id_comments (int(11))
+  - id_forum_posts (int(11))
+
+Table: steps
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_deals (int(11))
+  - type (enum('coupon','configuration','action'))
+  - description (longtext)
+  - optional (int(11))
+
+Table: users
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - status (enum('registered','activated','pro','dealmaster','partner'))
+  - email (varchar(300))
+  - username (varchar(300))
+  - first_name (varchar(300))
+  - last_name (varchar(300))
+  - reputation (enum('brand new','active','inactive','dealmaker','troublemaker','helpful in comments'))
+
+Table: users__deals
+  - id (int(11))
+  - timestamp_inserted (timestamp)
+  - id_users (int(11))
+  - id_deals (int(11))
+  - type (enum('posted','saved','shared'))
+

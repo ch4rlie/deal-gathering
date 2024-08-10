@@ -1,0 +1,28 @@
+{
+  "dependencies": {
+    "app-root-path": "^3.1.0",
+    "axios": "^1.7.3",
+    "cheerio": "^1.0.0-rc.12",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.11.1",
+    "fs-extra": "^11.2.0",
+    "mysql2": "^3.11.0",
+    "puppeteer": "^19.7.2",
+    "request": "^2.88.2",
+    "request-promise": "^4.2.6",
+    "sharp": "^0.33.4",
+    "web3": "^4.5.0"
+  },
+  "name": "deal-maker",
+  "version": "1.0.0",
+  "description": "Gather deals from the internet",
+  "main": "index.js",
+  "scripts": {
+    "test": "test",
+    "listdeals": "node ./tools/viewDealsDB.js",
+    "empty": "node ./tools/emptyAllTables.js",
+    "woot": "node ./data_sources/woot/woot.js"
+  },
+  "author": "",
+  "license": "ISC"
+}
