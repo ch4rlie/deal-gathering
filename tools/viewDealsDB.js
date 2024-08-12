@@ -13,20 +13,34 @@ const connection = mysql.createConnection({
   database: process.env.MYSQL_DATABASE,
 });
 
+const isJSON = (str) => {
+  try {
+    JSON.parse(str);
+  } catch (e) {
+    return false;
+  }
+  return true;
+};
+
+const formatDate = (dateString) => {
+  const date = new Date(dateString);
+  return isNaN(date.getTime()) ? "N/A" : date.toLocaleString();
+};
+
 const generateDealsReport = async () => {
   try {
     const [rows] = await connection.promise().query(`
       SELECT d.id, d.timestamp_inserted, d.status, d.price_expected, d.price_discounted, d.timestamp_expires,
              i.title AS item_title, i.description, i.condition, i.woot_url, i.woot_start_date, i.woot_end_date, i.color,
              GROUP_CONCAT(DISTINCT c.label ORDER BY c.label ASC) AS categories,
-             b.label AS brand
+             b.label AS brand, i.features AS item_features
       FROM deals d
       LEFT JOIN items i ON d.id = i.id
       LEFT JOIN deals__categories dc ON d.id = dc.id_deals
       LEFT JOIN categories c ON dc.id_categories = c.id
       LEFT JOIN deals__brands db ON d.id = db.id_deals
       LEFT JOIN brands b ON db.id_brands = b.id
-      GROUP BY d.id, b.label, i.title, i.description, i.condition, i.woot_url, i.woot_start_date, i.woot_end_date, i.color
+      GROUP BY d.id, b.label, i.title, i.description, i.condition, i.woot_url, i.woot_start_date, i.woot_end_date, i.color, i.features
       ORDER BY d.timestamp_inserted DESC
     `);
 
@@ -60,6 +74,7 @@ const generateDealsReport = async () => {
               <th>Brand</th>
               <th>Image</th>
               <th>Woot URL</th>
+              <th>Features</th>
             </tr>
           </thead>
           <tbody>
@@ -76,14 +91,25 @@ const generateDealsReport = async () => {
         ? `<img src="${row.image_url}" alt="Deal Image">`
         : "No Image";
 
+      let features = "N/A";
+      if (row.item_features) {
+        if (isJSON(row.item_features)) {
+          const parsedFeatures = JSON.parse(row.item_features);
+          features = `<pre>${JSON.stringify(parsedFeatures, null, 2)}</pre>`;
+        } else {
+          console.warn(`Invalid JSON for item ID ${row.id}. Outputting HTML.`);
+          features = row.item_features; // Display the raw HTML instead
+        }
+      }
+
       htmlContent += `
         <tr>
           <td>${row.id}</td>
-          <td>${new Date(row.timestamp_inserted).toLocaleString()}</td>
+          <td>${formatDate(row.timestamp_inserted)}</td>
           <td>${row.status}</td>
           <td>${priceExpected}</td>
           <td>${priceDiscounted}</td>
-          <td>${new Date(row.timestamp_expires).toLocaleString()}</td>
+          <td>${formatDate(row.timestamp_expires)}</td>
           <td>${row.item_title}</td>
           <td>${row.description || "N/A"}</td>
           <td>${row.condition || "N/A"}</td>
@@ -92,6 +118,7 @@ const generateDealsReport = async () => {
           <td>${row.brand || "N/A"}</td>
           <td>${imageUrl}</td>
           <td><a href="${row.woot_url}" target="_blank">View on Woot</a></td>
+          <td>${features}</td>
         </tr>
       `;
     });

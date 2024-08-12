@@ -42,6 +42,12 @@ Table: deals
   - price_discounted (decimal(10,0))
   - woot_offer_id (varchar(36))
   - image_url (varchar(500))
+  - start_date (datetime)
+  - end_date (datetime)
+  - is_sold_out (tinyint(1))
+  - list_price (decimal(10,2))
+  - sale_price (decimal(10,2))
+  - id_items (int(11))
 
 Table: deals__brands
   - id (int(11))
@@ -84,7 +90,7 @@ Table: items
   - label (varchar(300))
   - average_price (decimal(10,0))
   - woot_item_id (varchar(50))
-  - title (varchar(255))
+  - title (varchar(300))
   - description (text)
   - condition (varchar(50))
   - image_url (varchar(500))
@@ -95,6 +101,15 @@ Table: items
   - color (varchar(50))
   - features (text)
   - specs (text)
+  - full_title (varchar(500))
+  - attributes (json)
+  - photos (json)
+  - url (varchar(500))
+  - writeup_body (text)
+  - purchase_limit (int(11))
+  - list_price (decimal(10,2))
+  - sale_price (decimal(10,2))
+  - writeupBody (text)
 
 Table: items__features
   - id (int(11))
