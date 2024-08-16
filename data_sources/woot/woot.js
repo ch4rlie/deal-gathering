@@ -1,7 +1,7 @@
 const axios = require("axios");
 const path = require("path");
 const fs = require("fs");
-const connection = require("../../utils/mysql"); // Using our helper utility
+const connection = require("../../utils/mysql");
 require("dotenv").config({ path: path.resolve(__dirname, "../../.env.local") });
 
 const WOOT_FEED_ENDPOINT = "https://developer.woot.com/feed/All";
