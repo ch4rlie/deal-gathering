@@ -1,16 +1,9 @@
-const mysql = require("mysql2");
 const fs = require("fs");
 const path = require("path");
+const createConnection = require("../utils/mysql");
+
 require("dotenv").config({
   path: require("path").resolve(__dirname, "../.env.local"),
-});
-
-// MySQL connection setup
-const connection = mysql.createConnection({
-  host: process.env.MYSQL_HOST,
-  user: process.env.MYSQL_USER,
-  password: process.env.MYSQL_PASSWORD,
-  database: process.env.MYSQL_DATABASE,
 });
 
 const isJSON = (str) => {
@@ -28,8 +21,10 @@ const formatDate = (dateString) => {
 };
 
 const generateDealsReport = async () => {
+  const connection = await createConnection();
+
   try {
-    const [rows] = await connection.promise().query(`
+    const [rows] = await connection.query(`
       SELECT d.id, d.timestamp_inserted, d.status, d.price_expected, d.price_discounted, d.timestamp_expires,
              i.title AS item_title, i.description, i.condition, i.woot_url, i.woot_start_date, i.woot_end_date, i.color,
              GROUP_CONCAT(DISTINCT c.label ORDER BY c.label ASC) AS categories,

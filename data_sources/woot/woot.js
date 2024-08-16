@@ -1,7 +1,7 @@
 const axios = require("axios");
-const mysql = require("mysql2/promise");
 const path = require("path");
 const fs = require("fs");
+const connection = require("../../utils/mysql"); // Using our helper utility
 require("dotenv").config({ path: path.resolve(__dirname, "../../.env.local") });
 
 const WOOT_FEED_ENDPOINT = "https://developer.woot.com/feed/All";
@@ -12,16 +12,9 @@ const processBrand = require("./processBrand");
 const processCategories = require("./processCategories");
 
 const fetchWootDeals = async () => {
-  const connection = await mysql.createConnection({
-    host: process.env.MYSQL_HOST,
-    user: process.env.MYSQL_USER,
-    password: process.env.MYSQL_PASSWORD,
-    database: process.env.MYSQL_DATABASE,
-    charset: "utf8mb4",
-  });
-
+  const conn = await connection();
   let page = 1;
-  let maxDeals = 25; // Limit for testing
+  let maxDeals = 25;
   let newDealsAdded = 0;
   let hasMorePages = true;
   const offerIdsBatch = [];
@@ -42,20 +35,18 @@ const fetchWootDeals = async () => {
         break;
       }
 
-      // Collect offer IDs
       for (const deal of deals) {
         offerIdsBatch.push(deal.OfferId);
         if (offerIdsBatch.length === 25) {
-          await fetchOfferDetailsBatch(offerIdsBatch, connection);
+          await fetchOfferDetailsBatch(offerIdsBatch, conn);
           offerIdsBatch.length = 0; // Clear the batch after processing
           newDealsAdded += 25;
           if (newDealsAdded >= maxDeals) break;
         }
       }
 
-      // Handle any remaining offer IDs
       if (offerIdsBatch.length > 0) {
-        await fetchOfferDetailsBatch(offerIdsBatch, connection);
+        await fetchOfferDetailsBatch(offerIdsBatch, conn);
         newDealsAdded += offerIdsBatch.length;
         offerIdsBatch.length = 0; // Clear the batch after processing
       }
@@ -68,11 +59,11 @@ const fetchWootDeals = async () => {
       error.response?.data || error.message
     );
   } finally {
-    await connection.end();
+    await conn.end(); // Ensure connection is closed
   }
 };
 
-const fetchOfferDetailsBatch = async (offerIds, connection) => {
+const fetchOfferDetailsBatch = async (offerIds, conn) => {
   try {
     const response = await axios.post(
       WOOT_GET_OFFERS_ENDPOINT,
@@ -88,36 +79,35 @@ const fetchOfferDetailsBatch = async (offerIds, connection) => {
     const offers = response.data;
 
     for (const offer of offers) {
-      // Process each offer as before
-      const itemDetails = offer.Items[0]; // Assuming one item per offer
+      const itemDetails = offer.Items[0];
 
-      // Save image(s) locally
       const imagePaths = [];
-      for (const photo of itemDetails.Photos) {
+      for (let index = 0; index < itemDetails.Photos.length; index++) {
+        const photo = itemDetails.Photos[index];
         const imageFilePath = path.resolve(
           __dirname,
-          `./images/${itemDetails.Id}_${photo.Id}.jpg`
+          `./images/${itemDetails.Id}_photo${index}.jpg`
         );
         await downloadImage(photo.Url, imageFilePath);
-        imagePaths.push(`images/${itemDetails.Id}_${photo.Id}.jpg`);
+        imagePaths.push(`images/${itemDetails.Id}_photo${index}.jpg`);
       }
 
       const itemSql = `
-              INSERT INTO items (woot_item_id, title, description, \`condition\`, image_url, woot_url, woot_start_date, woot_end_date, asin, color, features, specs)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON DUPLICATE KEY UPDATE 
-                title = VALUES(title),
-                description = VALUES(description),
-                \`condition\` = VALUES(\`condition\`),
-                image_url = VALUES(image_url),
-                woot_url = VALUES(woot_url),
-                woot_start_date = VALUES(woot_start_date),
-                woot_end_date = VALUES(woot_end_date),
-                asin = VALUES(asin),
-                color = VALUES(color),
-                features = VALUES(features),
-                specs = VALUES(specs)
-          `;
+        INSERT INTO items (woot_item_id, title, description, \`condition\`, image_url, woot_url, woot_start_date, woot_end_date, asin, color, features, specs)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+          title = VALUES(title),
+          description = VALUES(description),
+          \`condition\` = VALUES(\`condition\`),
+          image_url = VALUES(image_url),
+          woot_url = VALUES(woot_url),
+          woot_start_date = VALUES(woot_start_date),
+          woot_end_date = VALUES(woot_end_date),
+          asin = VALUES(asin),
+          color = VALUES(color),
+          features = VALUES(features),
+          specs = VALUES(specs)
+      `;
 
       const itemValues = [
         itemDetails.Id,
@@ -136,39 +126,35 @@ const fetchOfferDetailsBatch = async (offerIds, connection) => {
         offer.Specs || null,
       ];
 
-      await connection.query(itemSql, itemValues);
+      await conn.query(itemSql, itemValues);
       console.log("Item inserted/updated:", offer.FullTitle);
 
-      // Get the item ID
-      const [itemRows] = await connection.query(
+      const [itemRows] = await conn.query(
         `SELECT id FROM items WHERE woot_item_id = ? LIMIT 1`,
         [itemDetails.Id]
       );
       const itemId = itemRows[0].id;
 
-      // Process brand and link to item
       if (offer.BrandName) {
         console.log("Processing brand:", offer.BrandName);
-        const brandId = await processBrand(connection, offer.BrandName);
+        const brandId = await processBrand(conn, offer.BrandName);
         const brandLinkSql = `INSERT INTO items__brands (id_items, id_brands) VALUES (?, ?) ON DUPLICATE KEY UPDATE id_brands = VALUES(id_brands)`;
-        await connection.query(brandLinkSql, [itemId, brandId]);
+        await conn.query(brandLinkSql, [itemId, brandId]);
       } else {
         console.log("No BrandName found for deal:", offer.FullTitle);
       }
 
-      // Process categories and link to deal
-      await processCategories(connection, offer.Categories, itemId);
+      await processCategories(conn, offer.Categories, itemId);
 
-      // Insert the deal
       const dealSql = `
-            INSERT INTO deals (woot_offer_id, id_items, timestamp_inserted, status, price_expected, price_discounted, timestamp_expires)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON DUPLICATE KEY UPDATE 
-              status = VALUES(status),
-              price_expected = VALUES(price_expected),
-              price_discounted = VALUES(price_discounted),
-              timestamp_expires = VALUES(timestamp_expires)
-          `;
+        INSERT INTO deals (woot_offer_id, id_items, timestamp_inserted, status, price_expected, price_discounted, timestamp_expires)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON DUPLICATE KEY UPDATE 
+          status = VALUES(status),
+          price_expected = VALUES(price_expected),
+          price_discounted = VALUES(price_discounted),
+          timestamp_expires = VALUES(timestamp_expires)
+      `;
       const dealValues = [
         offer.OfferId,
         itemId,
@@ -178,7 +164,7 @@ const fetchOfferDetailsBatch = async (offerIds, connection) => {
         itemDetails.SalePrice,
         formatDateForMySQL(offer.EndDate),
       ];
-      await connection.query(dealSql, dealValues);
+      await conn.query(dealSql, dealValues);
       console.log("Deal inserted/updated:", offer.FullTitle);
     }
   } catch (error) {
